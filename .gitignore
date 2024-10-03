@@ -1,0 +1,13 @@
+# Arquivos Python compilados
+__pycache__/
+*.py[cod]
+
+# Ambiente virtual
+venv/
+env/
+
+# Arquivos de log
+*.log
+
+# Outros
+.DS_Store
