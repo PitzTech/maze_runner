@@ -1,5 +1,5 @@
 import random
-from colorama import Fore, Back, Style, init
+from colorama import Fore, Style, init
 
 class Labirinto:
     """
@@ -70,14 +70,19 @@ class Labirinto:
                     vizinhos.append((nx, ny))
         return vizinhos
 
-    def exibir_labirinto(self, caminho_percorrido=None, menor_caminho=None):
+    def eh_saida(self, posicao):
         """
-        Exibe o labirinto no console, incluindo referências numéricas para as posições
-        e destacando a entrada e a saída em vermelho. Destaca o caminho percorrido em verde
-        e o menor caminho em azul, se fornecidos.
+        Verifica se a posição dada é a saída.
         """
-        init(autoreset=True)  # Inicializa o colorama
+        return posicao == self.saida
 
+    def exibir_labirinto(self, caminho_percorrido=None, menor_caminho=None, agente_posicao=None, arquivo=None):
+        """
+        Exibe o labirinto no console ou escreve em um arquivo, incluindo referências numéricas para as posições
+        e destacando a entrada e a saída. Destaca o caminho percorrido, o menor caminho, e a posição do agente.
+        """
+        if arquivo is None:
+            init(autoreset=True)  # Inicializa o colorama
         entrada = self.entrada
         saida = self.saida
 
@@ -85,38 +90,54 @@ class Labirinto:
         conjunto_caminho_percorrido = set(caminho_percorrido) if caminho_percorrido else set()
         conjunto_menor_caminho = set(menor_caminho) if menor_caminho else set()
 
+        # Cria uma lista para armazenar as linhas do labirinto
+        linhas_labirinto = []
+
         # Imprime os índices das colunas
-        print("   ", end='')
-        for x in range(self.largura):
-            print(f"{x % 10}", end='')
-        print()
+        linha_indices = "   " + ''.join(f"{x % 10}" for x in range(self.largura))
+        linhas_labirinto.append(linha_indices)
 
         for y in range(self.altura):
-            # Imprime o índice da linha
-            print(f"{y % 10:2} ", end='')
+            linha = f"{y % 10:2} "
             for x in range(self.largura):
                 celula = self.matriz[y][x]
                 posicao_atual = (x, y)
                 if posicao_atual == entrada:
-                    # Destaca a entrada em vermelho com 'E'
-                    print(f"{Fore.RED}E{Style.RESET_ALL}", end='')
+                    # Destaca a entrada
+                    simbolo = 'E'
+                    if arquivo is None:
+                        simbolo = f"{Fore.RED}E{Style.RESET_ALL}"
                 elif posicao_atual == saida:
-                    # Destaca a saída em vermelho com 'S'
-                    print(f"{Fore.RED}S{Style.RESET_ALL}", end='')
+                    # Destaca a saída
+                    simbolo = 'S'
+                    if arquivo is None:
+                        simbolo = f"{Fore.RED}S{Style.RESET_ALL}"
+                elif posicao_atual == agente_posicao:
+                    # Destaca a posição atual do agente
+                    simbolo = 'A'
+                    if arquivo is None:
+                        simbolo = f"{Fore.YELLOW}A{Style.RESET_ALL}"
                 elif posicao_atual in conjunto_menor_caminho:
-                    # Destaca o menor caminho em azul
-                    print(f"{Fore.BLUE}·{Style.RESET_ALL}", end='')
+                    # Destaca o menor caminho
+                    simbolo = '·'
+                    if arquivo is None:
+                        simbolo = f"{Fore.RED}·{Style.RESET_ALL}"
                 elif posicao_atual in conjunto_caminho_percorrido:
-                    # Destaca o caminho percorrido em verde
-                    print(f"{Fore.GREEN}·{Style.RESET_ALL}", end='')
+                    # Destaca o caminho percorrido
+                    simbolo = '·'
+                    if arquivo is None:
+                        simbolo = f"{Fore.BLUE}·{Style.RESET_ALL}"
                 elif celula == 1:
-                    print('█', end='')
+                    simbolo = '█'
                 else:
-                    print(' ', end='')
-            print()
+                    simbolo = ' '
+                linha += simbolo
+            linhas_labirinto.append(linha)
 
-    def eh_saida(self, posicao):
-        """
-        Verifica se a posição dada é a saída.
-        """
-        return posicao == self.saida
+        # Escreve as linhas no arquivo ou imprime no console
+        if arquivo:
+            for linha in linhas_labirinto:
+                arquivo.write(linha + '\n')
+        else:
+            for linha in linhas_labirinto:
+                print(linha)

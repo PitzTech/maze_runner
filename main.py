@@ -9,18 +9,25 @@ def main():
 
     print(f"Labirinto de tamanho {largura}x{altura}")
 
+    print("Labirinto inicial:")
     labirinto = Labirinto(largura, altura)
     labirinto.exibir_labirinto()
 
-    agente = AgenteExplorador(labirinto)
+    # Cria o agente, com a flag para imprimir ou não os passos no arquivo
+    agente = AgenteExplorador(labirinto, imprimir_passos_no_arquivo=True)  # Ajuste aqui a flag
     agente.explorar()
 
-    # Exibe o labirinto novamente com os caminhos destacados
-    print("\nLabirinto com o caminho percorrido em verde e o menor caminho em azul:")
+      # Após a exploração, imprime o labirinto final no console com cores
+    print("\nLabirinto com o caminho percorrido em azul e o menor caminho em vermelho:")
     labirinto.exibir_labirinto(
         caminho_percorrido=agente.get_caminho_percorrido(),
         menor_caminho=agente.get_menor_caminho()
     )
+
+    print(f"\nTotal de movimentos realizados: {agente.movimentos}")
+
+    if agente.imprimir_passos_no_arquivo:
+        print("Exploração detalhada foi escrita no arquivo 'saida_labirinto.txt'.")
 
 if __name__ == "__main__":
     main()
