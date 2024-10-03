@@ -1,71 +1,77 @@
-# agente_explorador.py
-
-import heapq
-from no import No
+import random
 
 class AgenteExplorador:
     """
     Classe que representa o agente que explora o labirinto.
+    O agente move-se passo a passo, descobrindo novos vértices apenas ao visitá-los.
+    Ele não conhece a posição da saída até alcançá-la.
     """
 
     def __init__(self, labirinto):
         self.labirinto = labirinto
-        self.posicao_atual = (1, 1)  # Posição inicial
-        self.objetivo = (labirinto.largura - 2, labirinto.altura - 2)  # Posição de saída
-        self.vertices_explorados = set()
-        self.caminho_percorrido = []
-        self.grafo_explorado = {}
+        self.posicao_atual = labirinto.entrada  # Posição inicial
+        self.vertices_visitados = set()
         self.movimentos = 0
-
-    def heuristica(self, posicao):
-        """
-        Calcula a heurística (distância de Manhattan) até o objetivo.
-        """
-        x1, y1 = posicao
-        x2, y2 = self.objetivo
-        return abs(x1 - x2) + abs(y1 - y2)
+        self.caminho_percorrido = []  # Todas as posições que o agente passou
+        self.pilha_caminho = []  # Pilha para simular a movimentação e backtracking
+        self.saida_encontrada = False
+        self.saida = None  # Será definida quando a saída for encontrada
 
     def explorar(self):
         """
-        Explora o labirinto utilizando o algoritmo A*.
+        Explora o labirinto utilizando uma abordagem de DFS iterativa,
+        simulando a movimentação passo a passo do agente, incluindo backtracking.
         """
-        fila_prioridade = []
-        no_inicial = No(self.posicao_atual, g=0, h=self.heuristica(self.posicao_atual))
-        heapq.heappush(fila_prioridade, no_inicial)
-        self.grafo_explorado[self.posicao_atual] = no_inicial
+        self.pilha_caminho.append(self.posicao_atual)
+        self.vertices_visitados.add(self.posicao_atual)
+        self.caminho_percorrido.append(self.posicao_atual)
+        self.movimentos += 1
 
-        while fila_prioridade:
-            no_atual = heapq.heappop(fila_prioridade)
-            self.posicao_atual = no_atual.posicao
-            self.movimentos += 1
-
-            if self.posicao_atual == self.objetivo:
+        while self.pilha_caminho:
+            posicao_atual = self.pilha_caminho[-1]
+            # Verifica se a posição atual é a saída
+            if self.labirinto.eh_saida(posicao_atual):
+                self.saida_encontrada = True
+                self.saida = posicao_atual
                 print("Saída encontrada!")
-                caminho = self.construir_caminho(no_atual)
-                print("Menor caminho:", caminho)
-                print("Movimentos necessários:", len(caminho) - 1)
-                return
+                menor_caminho = self.pilha_caminho.copy()
+                print("Menor caminho:", menor_caminho)
+                print("Movimentos necessários:", self.movimentos)
+                break
 
-            self.vertices_explorados.add(self.posicao_atual)
-            vizinhos = self.labirinto.obter_vizinhos(*self.posicao_atual)
-            for vizinho_pos in vizinhos:
-                if vizinho_pos in self.vertices_explorados:
-                    continue
-                g = no_atual.g + 1  # Custo do movimento
-                h = self.heuristica(vizinho_pos)
-                no_vizinho = No(vizinho_pos, g, h)
-                no_vizinho.pai = no_atual
+            # Obtém os vizinhos não visitados da posição atual
+            vizinhos = self.labirinto.obter_vizinhos(posicao_atual[0], posicao_atual[1])
+            vizinhos_nao_visitados = [v for v in vizinhos if v not in self.vertices_visitados]
 
-                if vizinho_pos not in self.grafo_explorado or g < self.grafo_explorado[vizinho_pos].g:
-                    heapq.heappush(fila_prioridade, no_vizinho)
-                    self.grafo_explorado[vizinho_pos] = no_vizinho
+            if vizinhos_nao_visitados:
+                # Escolhe um vizinho não visitado para mover
+                proximo_passo = random.choice(vizinhos_nao_visitados)
+                # Move para o próximo passo
+                self.pilha_caminho.append(proximo_passo)
+                self.vertices_visitados.add(proximo_passo)
+                self.caminho_percorrido.append(proximo_passo)
+                self.movimentos += 1
+            else:
+                # Não há vizinhos não visitados, precisa voltar (backtracking)
+                self.pilha_caminho.pop()
+                if self.pilha_caminho:
+                    # Move de volta para a posição anterior
+                    self.caminho_percorrido.append(self.pilha_caminho[-1])
+                    self.movimentos += 1
+        else:
+            print("Não foi possível encontrar a saída.")
 
-    def construir_caminho(self, no):
+    def get_caminho_percorrido(self):
         """
-        Reconstrói o caminho desde o início até o nó dado.
+        Retorna o caminho percorrido pelo agente, incluindo backtracking.
         """
-        caminho = []
-        while no is not None:
-            caminho.append(no.posicao)
-            no = no.pai
-        return caminho[::-1]
+        return self.caminho_percorrido
+
+    def get_menor_caminho(self):
+        """
+        Retorna o menor caminho encontrado até a saída.
+        """
+        if self.saida_encontrada:
+            return self.pilha_caminho.copy()
+        else:
+            return []

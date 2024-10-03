@@ -1,5 +1,3 @@
-# no.py
-
 class No:
     """
     Classe auxiliar para o algoritmo A*, representando um nó no grafo.
