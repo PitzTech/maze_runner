@@ -5,7 +5,6 @@ Este projeto implementa um solucionador de labirintos em Python utilizando o alg
 ## Estrutura do Projeto
 
 - **`labirinto.py`**: Classe `Labirinto` para gerar e representar o labirinto.
-- **`no.py`**: Classe `No` utilizada pelo algoritmo A*.
 - **`agente_explorador.py`**: Classe `AgenteExplorador` que implementa o algoritmo de exploração.
 - **`main.py`**: Ponto de entrada do programa.
 - **`.gitignore`**: Arquivo para especificar quais arquivos ou pastas o Git deve ignorar.
