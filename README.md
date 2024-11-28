@@ -21,7 +21,7 @@ Este projeto implementa um solucionador de labirintos em Python utilizando o alg
 3. Execute os seguintes comandos:
 
   ```bash
-  python -m venv venv
+  python3 -m venv venv
   source venv/bin/activate  # No Windows, use venv\Scripts\activate
   pip install --upgrade pip
   pip install -r requirements.txt
