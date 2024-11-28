@@ -163,13 +163,17 @@ class WebSocketMazeSolver:
         distances = defaultdict(lambda: float('infinity'))
         distances[start] = 0
         previous = {}
-        pq = [(0, start)]
+        pq = [(0, start, [start])]
         visited = set()
         best_exit = None
         min_exit_distance = float('infinity')
 
         while pq:
-            current_distance, current_vertex = heapq.heappop(pq)
+            current_distance, current_vertex, current_path  = heapq.heappop(pq)
+
+            # If we already found a path and current distance is greater, skip this branch
+            if min_exit_distance < float('infinity') and current_distance >= min_exit_distance:
+                continue
 
             if current_vertex in visited:
                 continue
@@ -180,19 +184,31 @@ class WebSocketMazeSolver:
                 if current_distance < min_exit_distance:
                     min_exit_distance = current_distance
                     best_exit = current_vertex
+                    best_path = current_path
+                    # Don't stop here - continue searching for potentially better paths
+                    print(f"\n🎯 Found exit path with weight {current_distance}: {current_path}")
+                    continue  # Continue searching for other possible exits
 
             # Get current vertex's adjacents
             _, adjacents = self.labirinto.visited_states[current_vertex]
+
+            # Sort adjacents by weight for better optimization
+            sorted_adjacents = sorted(adjacents, key=lambda x: x[1])
 
             # Explore each adjacent vertex
             for next_vertex, weight in adjacents:
                 if next_vertex not in visited:
                     distance = current_distance + weight
 
+                    # Skip paths that are already longer than our best path
+                    if min_exit_distance < float('infinity') and distance >= min_exit_distance:
+                        continue
+
                     if distance < distances[next_vertex]:
                         distances[next_vertex] = distance
                         previous[next_vertex] = current_vertex
-                        heapq.heappush(pq, (distance, next_vertex))
+                        new_path = current_path + [next_vertex]
+                        heapq.heappush(pq, (distance, next_vertex, new_path))
 
                     # Only explore unvisited vertices that are in our adjacents list
                     if next_vertex not in self.labirinto.visited_states:
@@ -203,13 +219,8 @@ class WebSocketMazeSolver:
                             continue
 
         if best_exit is not None:
-            path = []
-            current = best_exit
-            while current in previous:
-                path.append(current)
-                current = previous[current]
-            path.append(start)
-            return path[::-1], min_exit_distance
+            print(f"\n🏆 Best path found with weight {min_exit_distance}: {best_path}")
+            return best_path, min_exit_distance
 
         return [], 0.0
 
@@ -264,6 +275,7 @@ class WebSocketMazeSolver:
             return [], 0.0
         except Exception as e:
             print(f"❌ Unexpected error: {e}")
+            print(f"path {self.labirinto.steps_history}")
             raise
 
 if __name__ == "__main__":
