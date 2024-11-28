@@ -51,7 +51,7 @@ class WebSocketMazeVisualizer:
         linhas_labirinto = []
 
         # Índices das colunas
-        linha_indices = "   " + ''.join(f"{x:2}" for x in range(self.grid_size))
+        linha_indices = "  " + ''.join(f"{x:2}" for x in range(self.grid_size))
         linhas_labirinto.append(linha_indices)
 
         # Gera o labirinto
@@ -78,7 +78,7 @@ class WebSocketMazeVisualizer:
                 elif vertex_id in conjunto_menor_caminho:
                     simbolo = '█'
                     if arquivo is None:
-                        simbolo = f"{Fore.RED}█{Style.RESET_ALL}"
+                        simbolo = f"{Fore.BLUE}█{Style.RESET_ALL}"
                 elif vertex_id in conjunto_caminho_percorrido:
                     simbolo = 'Θ'
                     if arquivo is None:
@@ -91,7 +91,7 @@ class WebSocketMazeVisualizer:
                     if arquivo is None:
                         simbolo = f"{Fore.WHITE}{min_weight}{Style.RESET_ALL}"
 
-                linha += f"{simbolo:2}"
+                linha += f"{simbolo:2} "
             linhas_labirinto.append(linha)
 
         # Escreve as linhas
@@ -300,9 +300,10 @@ def print_full_maze_analysis(visualizer: WebSocketMazeVisualizer,
 
     print("\nComplete Exploration Path:")
     visualizer.exibir_labirinto(caminho_percorrido=caminho_percorrido)
+    print(' -> '.join(map(str, caminho_percorrido)))
 
     print("\nMinimum Path Found:")
-    visualizer.exibir_labirinto(menor_caminho=menor_caminho)
+    print(' -> '.join(map(str, menor_caminho)))
 
     print(f"\nResults saved in: {maze_dir}")
     print(f"- Text output: {txt_path}")
