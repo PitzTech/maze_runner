@@ -7,6 +7,7 @@ from vertex_type import VertexType
 from collections import defaultdict, deque
 import heapq
 from maze_visualizer import create_visualizer, print_full_maze_analysis
+import traceback
 
 class WebSocketLabirinto:
     def __init__(self, websocket, current_vertex: int, vertex_type: str, adjacents: List[Tuple[int, float]]):
@@ -18,7 +19,8 @@ class WebSocketLabirinto:
         self.visited_states: Dict[int, Tuple[str, List[Tuple[int, float]]]] = {
             current_vertex: (vertex_type, self.adjacents)
         }
-        self.steps_history = [current_vertex]
+        self.steps_history = [current_vertex]  # Track all steps including duplicates
+        self.complete_exploration = []  # Track unique vertices in order of first visit
         self.exits: Set[int] = set()
         if self.vertex_type == VertexType.SAIDA:
             self.exits.add(current_vertex)
@@ -42,7 +44,9 @@ class WebSocketLabirinto:
         print(f"Adjacentes: {self.adjacents}")
         print(f"🔄 Moving to vertex {vertex_id}")
 
-        self.steps_history.append(vertex_id)
+        self.steps_history.append(vertex_id)  # Add to full history
+        if vertex_id not in self.complete_exploration:  # Add to unique exploration
+            self.complete_exploration.append(vertex_id)
 
         await self.websocket.send(command)
         response = await self.websocket.recv()
@@ -154,131 +158,123 @@ class WebSocketMazeSolver:
                   # Create new stack from path
                   stack = path.copy()
 
-                  # Move along the shortest path to the target node
+                  # Move along the path to the target node
                   for node in path[1:]:  # Skip the current node
                       await self.labirinto.move_to(node)
 
-                  # Update current position and stack
+                  # Update current position
                   current = target_node
 
     async def find_shortest_path(self, start: int) -> Tuple[List[int], float]:
-        distances = defaultdict(lambda: float('infinity'))
-        distances[start] = 0
-        previous = {}
-        pq = [(0, start, [start])]
-        visited = set()
-        best_exit = None
-        min_exit_distance = float('infinity')
+      """
+      Find shortest path to ANY exit using Dijkstra's algorithm
+      """
+      # Initialize distances
+      distances = {vertex: float('infinity') for vertex in self.labirinto.visited_states.keys()}
+      distances[start] = 0
 
-        while pq:
-            current_distance, current_vertex, current_path  = heapq.heappop(pq)
+      # Priority queue: (distance, vertex, path_to_vertex)
+      pq = [(0, start, [start])]
+      visited = set()
 
-            # If we already found a path and current distance is greater, skip this branch
-            if min_exit_distance < float('infinity') and current_distance >= min_exit_distance:
-                continue
+      # Track all paths to exits
+      exit_paths = []
+      min_exit_distance = float('infinity')
 
-            if current_vertex in visited:
-                continue
+      while pq:
+          current_distance, current_vertex, current_path = heapq.heappop(pq)
 
-            visited.add(current_vertex)
+          # Skip if we already found a better path
+          if current_distance > min_exit_distance:
+              continue
 
-            if self.labirinto.eh_saida(current_vertex):
-                if current_distance < min_exit_distance:
-                    min_exit_distance = current_distance
-                    best_exit = current_vertex
-                    best_path = current_path
-                    # Don't stop here - continue searching for potentially better paths
-                    print(f"\n🎯 Found exit path with weight {current_distance}: {current_path}")
-                    continue  # Continue searching for other possible exits
+          # Skip if already visited
+          if current_vertex in visited:
+              continue
 
-            # Get current vertex's adjacents
-            _, adjacents = self.labirinto.visited_states[current_vertex]
+          visited.add(current_vertex)
 
-            # Sort adjacents by weight for better optimization
-            sorted_adjacents = sorted(adjacents, key=lambda x: x[1])
+          # If we found an exit
+          if self.labirinto.eh_saida(current_vertex):
+              exit_paths.append((current_path, current_distance))
+              min_exit_distance = min(min_exit_distance, current_distance)
+              continue  # Try other paths that might be shorter
 
-            # Explore each adjacent vertex
-            for next_vertex, weight in adjacents:
-                if next_vertex not in visited:
-                    distance = current_distance + weight
+          # Get adjacents
+          _, adjacents = self.labirinto.visited_states[current_vertex]
 
-                    # Skip paths that are already longer than our best path
-                    if min_exit_distance < float('infinity') and distance >= min_exit_distance:
-                        continue
+          # Explore each adjacent vertex
+          for next_vertex, weight in adjacents:
+              if next_vertex not in visited:
+                  new_distance = current_distance + weight
 
-                    if distance < distances[next_vertex]:
-                        distances[next_vertex] = distance
-                        previous[next_vertex] = current_vertex
-                        new_path = current_path + [next_vertex]
-                        heapq.heappush(pq, (distance, next_vertex, new_path))
+                  # Skip if this path would be longer than best found
+                  if new_distance >= min_exit_distance:
+                      continue
 
-                    # Only explore unvisited vertices that are in our adjacents list
-                    if next_vertex not in self.labirinto.visited_states:
-                        try:
-                            await self.labirinto.move_to(next_vertex)
-                        except ValueError as e:
-                            print(f"⚠️ Warning: Skipping invalid move to {next_vertex}")
-                            continue
+                  if new_distance < distances[next_vertex]:
+                      # Add this path to priority queue
+                      new_path = current_path + [next_vertex]
+                      distances[next_vertex] = new_distance
+                      heapq.heappush(pq, (new_distance, next_vertex, new_path))
 
-        if best_exit is not None:
-            print(f"\n🏆 Best path found with weight {min_exit_distance}: {best_path}")
-            return best_path, min_exit_distance
+      # Return shortest path found (if any)
+      if exit_paths:
+          # Sort paths by distance and return the shortest
+          exit_paths.sort(key=lambda x: x[1])
+          return exit_paths[0]
 
-        return [], 0.0
+      return [], 0.0
 
     async def explore(self) -> Tuple[List[int], float]:
-        url = f"{self.config.websocket_url}{self.config.grupo_id}/{self.config.labirinto_id}"
+      url = f"{self.config.websocket_url}{self.config.grupo_id}/{self.config.labirinto_id}"
 
-        print("\n🌐 Starting WebSocket Maze Solver")
-        print(f"📍 Connecting to: {url}")
+      print("\n🌐 Starting WebSocket Maze Solver")
+      print(f"📍 Connecting to: {url}")
 
-        try:
-            async with websockets.connect(url) as websocket:
-                initial_message = await websocket.recv()
-                print(f"\n📩 Initial server message: {initial_message}")
+      try:
+          async with websockets.connect(url) as websocket:
+              initial_message = await websocket.recv()
+              print(f"\n📩 Initial server message: {initial_message}")
 
-                current, vertex_type, adjacents = await WebSocketLabirinto.parse_server_message(initial_message)
-                self.labirinto = WebSocketLabirinto(websocket, current, vertex_type, adjacents)
+              current, vertex_type, adjacents = await WebSocketLabirinto.parse_server_message(initial_message)
+              self.labirinto = WebSocketLabirinto(websocket, current, vertex_type, adjacents)
 
-                # First explore the entire maze
-                print("\n🔍 Exploring entire maze...")
-                await self.explore_maze()
+              # First explore the entire maze
+              print("\n🔍 Exploring entire maze...")
+              await self.explore_maze()
 
-                # Now find the shortest path using the complete maze information
-                print("\n🔍 Finding shortest path...")
-                path, weight = await self.find_shortest_path(current)
+              # Now find the shortest path using the complete maze information
+              print("\n🔍 Finding shortest path...")
+              path, weight = await self.find_shortest_path(current)
 
-                if path:
-                    print("\n✨ Path found!")
-                    print(f"Path: {path}")
-                    print(f"Total weight: {weight}")
+              if path:
+                  print("\n✨ Path found!")
+                  print(f"Path: {path}")
+                  print(f"Total weight: {weight}")
 
-                    visualizer = create_visualizer(self.labirinto.visited_states, self.labirinto.entrada)
+                  visualizer = create_visualizer(self.labirinto.visited_states, self.labirinto.entrada)
 
-                    # Show in console
-                    print_full_maze_analysis(
-                        visualizer,
-                        caminho_percorrido=self.labirinto.steps_history,
-                        menor_caminho=path,
-                        maze_id=self.config.labirinto_id
-                    )
+                  # Use complete_exploration for the full path
+                  print_full_maze_analysis(
+                      visualizer,
+                      caminho_percorrido=self.labirinto.complete_exploration,
+                      menor_caminho=path,
+                      maze_id=self.config.labirinto_id
+                  )
 
-                    print("\n✨ Path found!")
-                    print(f"Path: {path}")
-                    print(f"Total weight: {weight}")
+                  return path, weight
+              else:
+                  print("\n❌ No path found")
+                  return [], 0.0
 
-                    return path, weight
-                else:
-                    print("\n❌ No path found")
-                    return [], 0.0
-
-        except websockets.exceptions.WebSocketException as e:
-            print(f"❌ WebSocket error: {e}")
-            return [], 0.0
-        except Exception as e:
-            print(f"❌ Unexpected error: {e}")
-            print(f"path {self.labirinto.steps_history}")
-            raise
+      except websockets.exceptions.WebSocketException as e:
+          print(f"❌ WebSocket error: {e}")
+          return [], 0.0
+      except Exception as e:
+          print(f"❌ Unexpected error: {e}")
+          print(f"path {self.labirinto.steps_history}")
+          raise
 
 if __name__ == "__main__":
     async def main():
