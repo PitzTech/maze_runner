@@ -282,9 +282,13 @@ def print_full_maze_analysis(visualizer: WebSocketMazeVisualizer,
 
         print("\nComplete Exploration Path:", file=arquivo)
         visualizer.exibir_labirinto(caminho_percorrido=caminho_percorrido, arquivo=arquivo)
+        print(' -> '.join(map(str, caminho_percorrido)))
+        print(f'Steps Taken {len(caminho_percorrido)}')
 
         print("\nMinimum Path Found:", file=arquivo)
         visualizer.exibir_labirinto(menor_caminho=menor_caminho, arquivo=arquivo)
+        print(' -> '.join(map(str, menor_caminho)))
+        print(f'Steps Taken {len(menor_caminho)}')
 
     # Generate and save HTML visualization
     html_content = visualizer.generate_html(menor_caminho)
@@ -301,9 +305,11 @@ def print_full_maze_analysis(visualizer: WebSocketMazeVisualizer,
     print("\nComplete Exploration Path:")
     visualizer.exibir_labirinto(caminho_percorrido=caminho_percorrido)
     print(' -> '.join(map(str, caminho_percorrido)))
+    print(f'Steps Taken {len(caminho_percorrido)}')
 
     print("\nMinimum Path Found:")
     print(' -> '.join(map(str, menor_caminho)))
+    print(f'Steps Taken {len(menor_caminho)}')
 
     print(f"\nResults saved in: {maze_dir}")
     print(f"- Text output: {txt_path}")
