@@ -151,13 +151,15 @@ class WebSocketMazeSolver:
                   # Exploration complete
                   break
               else:
+                  # Create new stack from path
+                  stack = path.copy()
+
                   # Move along the shortest path to the target node
                   for node in path[1:]:  # Skip the current node
                       await self.labirinto.move_to(node)
 
                   # Update current position and stack
                   current = target_node
-                  stack = stack[:stack.index(current)+1]
 
     async def find_shortest_path(self, start: int) -> Tuple[List[int], float]:
         distances = defaultdict(lambda: float('infinity'))
