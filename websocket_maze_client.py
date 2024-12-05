@@ -125,6 +125,7 @@ class WebSocketMazeSolver:
 
     async def explore_maze(self) -> None:
       visited = set()
+      invalid_vertices = set()  # Track vertices that can't be visited
       current = self.labirinto.current_vertex
       visited.add(current)
       stack = [current]
@@ -133,37 +134,51 @@ class WebSocketMazeSolver:
           # Get adjacents for current vertex
           _, adjacents = self.labirinto.visited_states[current]
 
-          # Find unvisited adjacent nodes
-          unvisited_adjacents = [next_vertex for next_vertex, _ in adjacents if next_vertex not in visited]
+          # Find unvisited and valid adjacent nodes
+          unvisited_adjacents = [next_vertex for next_vertex, _ in adjacents
+                              if next_vertex not in visited and next_vertex not in invalid_vertices]
 
           if unvisited_adjacents:
               # Choose one unvisited adjacent node
               next_vertex = unvisited_adjacents[0]
 
-              # Move to next_vertex from current
-              await self.labirinto.move_to(next_vertex)
+              try:
+                  # Try to move to next_vertex
+                  await self.labirinto.move_to(next_vertex)
 
-              # Mark it as visited and push it onto the stack
-              visited.add(next_vertex)
-              stack.append(next_vertex)
-              current = next_vertex
+                  # If successful, update state
+                  visited.add(next_vertex)
+                  stack.append(next_vertex)
+                  current = next_vertex
+              except ValueError as e:
+                  # If move fails, mark vertex as invalid and continue with next
+                  print(f"⚠️ Skipping invalid vertex {next_vertex}")
+                  invalid_vertices.add(next_vertex)
+                  continue
+
           else:
               # Find the nearest node with unvisited adjacents
-              target_node, path = self.find_nearest_node_with_unvisited_adjacent(current, visited)
+              target_node, path = self.find_nearest_node_with_unvisited_adjacent(current, visited | invalid_vertices)
 
               if target_node is None:
                   # Exploration complete
                   break
               else:
-                  # Create new stack from path
-                  stack = path.copy()
-
                   # Move along the path to the target node
-                  for node in path[1:]:  # Skip the current node
-                      await self.labirinto.move_to(node)
+                  valid_path = []
+                  for node in path[1:]:  # Skip current node
+                      try:
+                          await self.labirinto.move_to(node)
+                          valid_path.append(node)
+                      except ValueError:
+                          # If a node in path is invalid, stop here and mark it
+                          invalid_vertices.add(node)
+                          break
 
-                  # Update current position
-                  current = target_node
+                  if valid_path:
+                      # Update only if we successfully moved somewhere
+                      stack = path[:len(valid_path)+1]  # Include current node
+                      current = valid_path[-1]
 
     async def find_shortest_path(self, start: int) -> Tuple[List[int], float]:
       """
